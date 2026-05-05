@@ -24,7 +24,7 @@ pi install npm:@narumitw/pi-jupyter
 Or pin a version:
 
 ```bash
-pi install npm:@narumitw/pi-jupyter@0.1.1
+pi install npm:@narumitw/pi-jupyter@0.1.2
 ```
 
 Install for the current project only:
@@ -36,7 +36,7 @@ pi install npm:@narumitw/pi-jupyter -l
 Install from GitHub/tag instead of npm:
 
 ```bash
-pi install git:github.com/narumiruna/pi-jupyter@v0.1.1
+pi install git:github.com/narumiruna/pi-jupyter@v0.1.2
 ```
 
 If you previously installed the unscoped package, remove it before installing the scoped package:
