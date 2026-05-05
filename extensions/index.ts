@@ -233,7 +233,7 @@ export default function jupyterPreview(pi: ExtensionAPI) {
 		},
 	});
 
-	pi.registerShortcut("ctrl+j", {
+	pi.registerShortcut("f8", {
 		description: "Toggle Jupyter notebook preview",
 		handler: async (ctx) => {
 			if (state.visible && overlayHandle) hidePanel(ctx);
@@ -241,7 +241,7 @@ export default function jupyterPreview(pi: ExtensionAPI) {
 		},
 	});
 
-	pi.registerShortcut("ctrl+shift+j", {
+	pi.registerShortcut("shift+f8", {
 		description: "Focus Jupyter notebook preview for scrolling",
 		handler: async (ctx) => {
 			focusPanel(ctx);
@@ -304,7 +304,7 @@ class NotebookPreviewPanel implements Component {
 	) {}
 
 	handleInput(data: string): void {
-		if (matchesKey(data, Key.escape) || matchesKey(data, Key.ctrl("j"))) {
+		if (matchesKey(data, Key.escape) || matchesKey(data, "f8")) {
 			this.releaseFocus();
 			return;
 		}
@@ -352,8 +352,8 @@ class NotebookPreviewPanel implements Component {
 
 		lines.push(border("├") + border("─".repeat(inner)) + border("┤"));
 		const footer = this.state.focused
-			? " ↑↓ PgUp/PgDn or j/k/u/d scroll • Esc return"
-			: " Ctrl+↑/↓ scroll • Ctrl+Shift+↑/↓ page • Ctrl+Shift+J focus";
+			? " ↑↓ PgUp/PgDn or j/k/u/d scroll • Esc/F8 return"
+			: " Ctrl+↑/↓ scroll • Ctrl+Shift+↑/↓ page • Shift+F8 focus";
 		lines.push(pad(dim(footer)));
 		lines.push(border(`╰${"─".repeat(inner)}╯`));
 		return lines;

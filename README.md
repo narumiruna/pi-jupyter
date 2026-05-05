@@ -35,11 +35,11 @@ pi -e .
 
 ## Shortcuts
 
-- `Ctrl+J` — toggle preview.
-- `Ctrl+Shift+J` — focus preview for scrolling.
+- `F8` — toggle preview.
+- `Shift+F8` — focus preview for scrolling.
 - `Ctrl+↓` / `Ctrl+↑` — scroll preview down/up without focusing it.
 - `Ctrl+Shift+↓` / `Ctrl+Shift+↑` — page down/up without focusing it.
-- In focused preview: `↑`, `↓`, `PgUp`, `PgDn`, `Home` or `j`, `k`, `u`, `d`, `g` scroll; `Esc` returns focus to the editor.
+- In focused preview: `↑`, `↓`, `PgUp`, `PgDn`, `Home` or `j`, `k`, `u`, `d`, `g` scroll; `Esc` or `F8` returns focus to the editor.
 
 ## Notes
 
