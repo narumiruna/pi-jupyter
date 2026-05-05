@@ -37,17 +37,17 @@ pi -e .
 
 - `F8` — toggle preview.
 - `Shift+F8` — focus preview for scrolling.
-- `Ctrl+↓` / `Ctrl+↑` — scroll preview down/up without focusing it.
-- `Ctrl+Shift+↓` / `Ctrl+Shift+↑` — page down/up without focusing it.
+- `Ctrl+Alt+J` / `Ctrl+Alt+K` — scroll preview down/up without focusing it.
+- `Ctrl+Alt+D` / `Ctrl+Alt+U` — page down/up without focusing it.
 - In focused preview: `↑`, `↓`, `PgUp`, `PgDn`, `Home` or `j`, `k`, `u`, `d`, `g` scroll; `Esc` or `F8` returns focus to the editor.
 
 ## Notes
 
-Inline images require a terminal/image protocol supported by `@mariozechner/pi-tui` (for example Kitty, iTerm2, Ghostty, or WezTerm). In unsupported terminals the preview falls back to an image placeholder.
+PNG outputs are rendered as truecolor ANSI thumbnails, so matplotlib-style `image/png` output is visible in Ghostty even inside the right-side overlay. Other image formats use `@mariozechner/pi-tui` terminal image support when available, otherwise they fall back to an image placeholder.
 
 The panel auto-hides on narrow terminals (`< 90` columns). Resize wider if it does not appear.
 
-If arrow keys conflict with Pi/editor keybindings, use the non-focusing `Ctrl+↑`/`Ctrl+↓` shortcuts or the slash commands:
+If shortcuts conflict with Pi/editor keybindings, use the slash commands:
 
 - `/jupyter-preview-down [lines]`
 - `/jupyter-preview-up [lines]`
