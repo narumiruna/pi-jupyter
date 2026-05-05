@@ -1,10 +1,10 @@
-import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@mariozechner/pi-coding-agent";
-import type { Component, OverlayHandle, TUI } from "@mariozechner/pi-tui";
-import { Image, Key, matchesKey, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@mariozechner/pi-tui";
-import { watch, type FSWatcher } from "node:fs";
+import { type FSWatcher, watch } from "node:fs";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { basename, relative, resolve } from "node:path";
 import { inflateSync } from "node:zlib";
+import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@mariozechner/pi-coding-agent";
+import type { Component, OverlayHandle, TUI } from "@mariozechner/pi-tui";
+import { Image, Key, matchesKey, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@mariozechner/pi-tui";
 
 const PANEL_ID = "jupyter-preview";
 const NOTEBOOK_EXT = ".ipynb";
@@ -90,42 +90,47 @@ export default function jupyterPreview(pi: ExtensionAPI) {
 			return;
 		}
 
-		void ctx.ui.custom<void>((tui, theme, _keybindings, done) => {
-			panel = new NotebookPreviewPanel(tui, theme, state, () => {
-				state.focused = false;
-				overlayHandle?.unfocus();
-				tui.requestRender();
-			});
-			requestRender = () => tui.requestRender();
-			closeOverlay = () => {
+		void ctx.ui
+			.custom<void>(
+				(tui, theme, _keybindings, done) => {
+					panel = new NotebookPreviewPanel(tui, theme, state, () => {
+						state.focused = false;
+						overlayHandle?.unfocus();
+						tui.requestRender();
+					});
+					requestRender = () => tui.requestRender();
+					closeOverlay = () => {
+						state.visible = false;
+						state.focused = false;
+						done(undefined);
+					};
+					return panel;
+				},
+				{
+					overlay: true,
+					overlayOptions: {
+						anchor: "right-center",
+						width: "42%",
+						minWidth: 42,
+						maxHeight: "96%",
+						margin: { right: 1 },
+						nonCapturing: true,
+						visible: (termWidth) => termWidth >= 90,
+					},
+					onHandle: (handle) => {
+						overlayHandle = handle;
+					},
+				},
+			)
+			.finally(() => {
+				overlayHandle = undefined;
+				panel = undefined;
+				closeOverlay = undefined;
+				requestRender = undefined;
 				state.visible = false;
 				state.focused = false;
-				done(undefined);
-			};
-			return panel;
-		}, {
-			overlay: true,
-			overlayOptions: {
-				anchor: "right-center",
-				width: "42%",
-				minWidth: 42,
-				maxHeight: "96%",
-				margin: { right: 1 },
-				nonCapturing: true,
-				visible: (termWidth) => termWidth >= 90,
-			},
-			onHandle: (handle) => {
-				overlayHandle = handle;
-			},
-		}).finally(() => {
-			overlayHandle = undefined;
-			panel = undefined;
-			closeOverlay = undefined;
-			requestRender = undefined;
-			state.visible = false;
-			state.focused = false;
-			ctx.ui.setStatus(PANEL_ID, undefined);
-		});
+				ctx.ui.setStatus(PANEL_ID, undefined);
+			});
 
 		requestRender?.();
 	}
@@ -147,7 +152,10 @@ export default function jupyterPreview(pi: ExtensionAPI) {
 		state.focused = true;
 		overlayHandle.focus();
 		requestRender?.();
-		ctx.ui.notify("Notebook preview focused. Use ↑/↓/PgUp/PgDn or j/k/u/d to scroll, Esc/F8 to return to editor.", "info");
+		ctx.ui.notify(
+			"Notebook preview focused. Use ↑/↓/PgUp/PgDn or j/k/u/d to scroll, Esc/F8 to return to editor.",
+			"info",
+		);
 	}
 
 	function scrollPreview(delta: number | "top", ctx?: ExtensionContext): void {
@@ -339,7 +347,9 @@ class NotebookPreviewPanel implements Component {
 			return border("│") + truncated + " ".repeat(Math.max(0, inner - visibleWidth(truncated))) + border("│");
 		};
 
-		const pathLabel = this.state.path ? relative(this.state.cwd, this.state.path) || basename(this.state.path) : "no notebook";
+		const pathLabel = this.state.path
+			? relative(this.state.cwd, this.state.path) || basename(this.state.path)
+			: "no notebook";
 		const title = `${this.state.focused ? "● " : ""}Jupyter Preview`;
 		const lines: string[] = [border(`╭${"─".repeat(inner)}╮`), pad(` ${accent(title)} ${dim(pathLabel)}`)];
 		lines.push(border("├") + border("─".repeat(inner)) + border("┤"));
@@ -421,7 +431,12 @@ function renderOutputs(outputs: Array<Record<string, unknown>>, width: number, t
 	for (const output of outputs) {
 		const outputType = String(output.output_type ?? "output");
 		if (outputType === "stream") {
-			lines.push(...normalizeSource(output.text as string | string[] | undefined).split("\n").filter(Boolean).map(dim));
+			lines.push(
+				...normalizeSource(output.text as string | string[] | undefined)
+					.split("\n")
+					.filter(Boolean)
+					.map(dim),
+			);
 			continue;
 		}
 		if (outputType === "error") {
@@ -440,7 +455,12 @@ function renderOutputs(outputs: Array<Record<string, unknown>>, width: number, t
 
 			const text = data["text/plain"] ?? data["text/markdown"];
 			if (typeof text === "string" || Array.isArray(text)) {
-				lines.push(...normalizeSource(text as string | string[]).split("\n").filter(Boolean).map(dim));
+				lines.push(
+					...normalizeSource(text as string | string[])
+						.split("\n")
+						.filter(Boolean)
+						.map(dim),
+				);
 			}
 
 			if (imageMime || typeof text === "string" || Array.isArray(text)) continue;
@@ -469,12 +489,17 @@ function renderInlineImage(base64Data: string, mimeType: string, width: number, 
 	}
 
 	try {
-		const image = new Image(cleanBase64, mimeType, {
-			fallbackColor: (s: string) => th.fg("muted", s),
-		}, {
-			maxWidthCells: Math.max(8, Math.min(60, width - 8)),
-			maxHeightCells: 16,
-		});
+		const image = new Image(
+			cleanBase64,
+			mimeType,
+			{
+				fallbackColor: (s: string) => th.fg("muted", s),
+			},
+			{
+				maxWidthCells: Math.max(8, Math.min(60, width - 8)),
+				maxHeightCells: 16,
+			},
+		);
 		return image.render(Math.max(10, width - 8));
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);
@@ -547,12 +572,23 @@ function decodePng(base64Data: string): DecodedPng {
 			const upLeft = x >= bpp ? previous[x - bpp] : 0;
 			const value = scanline[x];
 			switch (filter) {
-				case 0: recon[x] = value; break;
-				case 1: recon[x] = (value + left) & 0xff; break;
-				case 2: recon[x] = (value + up) & 0xff; break;
-				case 3: recon[x] = (value + Math.floor((left + up) / 2)) & 0xff; break;
-				case 4: recon[x] = (value + paeth(left, up, upLeft)) & 0xff; break;
-				default: throw new Error(`unsupported PNG filter ${filter}`);
+				case 0:
+					recon[x] = value;
+					break;
+				case 1:
+					recon[x] = (value + left) & 0xff;
+					break;
+				case 2:
+					recon[x] = (value + up) & 0xff;
+					break;
+				case 3:
+					recon[x] = (value + Math.floor((left + up) / 2)) & 0xff;
+					break;
+				case 4:
+					recon[x] = (value + paeth(left, up, upLeft)) & 0xff;
+					break;
+				default:
+					throw new Error(`unsupported PNG filter ${filter}`);
 			}
 		}
 		recon.copy(raw, outOffset);
@@ -570,17 +606,31 @@ function decodePng(base64Data: string): DecodedPng {
 			r = g = b = raw[i++];
 			if (transparency?.length === 2 && r === transparency.readUInt16BE(0)) a = 0;
 		} else if (colorType === 2) {
-			r = raw[i++]; g = raw[i++]; b = raw[i++];
-			if (transparency?.length === 6 && r === transparency.readUInt16BE(0) && g === transparency.readUInt16BE(2) && b === transparency.readUInt16BE(4)) a = 0;
+			r = raw[i++];
+			g = raw[i++];
+			b = raw[i++];
+			if (
+				transparency?.length === 6 &&
+				r === transparency.readUInt16BE(0) &&
+				g === transparency.readUInt16BE(2) &&
+				b === transparency.readUInt16BE(4)
+			)
+				a = 0;
 		} else if (colorType === 3) {
 			const index = raw[i++];
 			if (!palette || index * 3 + 2 >= palette.length) throw new Error("invalid PNG palette");
-			r = palette[index * 3]; g = palette[index * 3 + 1]; b = palette[index * 3 + 2];
+			r = palette[index * 3];
+			g = palette[index * 3 + 1];
+			b = palette[index * 3 + 2];
 			a = transparency?.[index] ?? 255;
 		} else if (colorType === 4) {
-			r = g = b = raw[i++]; a = raw[i++];
+			r = g = b = raw[i++];
+			a = raw[i++];
 		} else if (colorType === 6) {
-			r = raw[i++]; g = raw[i++]; b = raw[i++]; a = raw[i++];
+			r = raw[i++];
+			g = raw[i++];
+			b = raw[i++];
+			a = raw[i++];
 		}
 		const o = p * 4;
 		pixels[o] = r;
@@ -594,12 +644,18 @@ function decodePng(base64Data: string): DecodedPng {
 
 function pngChannels(colorType: number): number {
 	switch (colorType) {
-		case 0: return 1;
-		case 2: return 3;
-		case 3: return 1;
-		case 4: return 2;
-		case 6: return 4;
-		default: throw new Error(`unsupported PNG color type ${colorType}`);
+		case 0:
+			return 1;
+		case 2:
+			return 3;
+		case 3:
+			return 1;
+		case 4:
+			return 2;
+		case 6:
+			return 4;
+		default:
+			throw new Error(`unsupported PNG color type ${colorType}`);
 	}
 }
 
@@ -626,9 +682,10 @@ function renderPngThumbnail(png: DecodedPng, maxWidthCells: number, maxHeightCel
 		let line = "";
 		for (let x = 0; x < targetWidth; x++) {
 			const upper = samplePngPixel(png, x, row * 2, targetWidth, targetPixelHeight);
-			const lower = row * 2 + 1 < targetPixelHeight
-				? samplePngPixel(png, x, row * 2 + 1, targetWidth, targetPixelHeight)
-				: [255, 255, 255] as const;
+			const lower =
+				row * 2 + 1 < targetPixelHeight
+					? samplePngPixel(png, x, row * 2 + 1, targetWidth, targetPixelHeight)
+					: ([255, 255, 255] as const);
 			line += `\x1b[38;2;${upper[0]};${upper[1]};${upper[2]}m\x1b[48;2;${lower[0]};${lower[1]};${lower[2]}m▀`;
 		}
 		lines.push(`${line}\x1b[0m`);
@@ -636,7 +693,13 @@ function renderPngThumbnail(png: DecodedPng, maxWidthCells: number, maxHeightCel
 	return lines;
 }
 
-function samplePngPixel(png: DecodedPng, x: number, y: number, targetWidth: number, targetHeight: number): readonly [number, number, number] {
+function samplePngPixel(
+	png: DecodedPng,
+	x: number,
+	y: number,
+	targetWidth: number,
+	targetHeight: number,
+): readonly [number, number, number] {
 	const sx = Math.min(png.width - 1, Math.max(0, Math.floor(((x + 0.5) / targetWidth) * png.width)));
 	const sy = Math.min(png.height - 1, Math.max(0, Math.floor(((y + 0.5) / targetHeight) * png.height)));
 	const offset = (sy * png.width + sx) * 4;

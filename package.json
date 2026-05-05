@@ -19,8 +19,18 @@
     "@mariozechner/pi-tui": "*"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.14",
     "@mariozechner/pi-coding-agent": "*",
     "@mariozechner/pi-tui": "*",
     "typescript": "^5.9.3"
-  }
+  },
+  "scripts": {
+    "check": "biome check .",
+    "format": "biome check --write .",
+    "prepublishOnly": "npm run check"
+  },
+  "files": [
+    "extensions",
+    "README.md"
+  ]
 }

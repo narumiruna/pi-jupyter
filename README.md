@@ -25,6 +25,27 @@ Or test without installing:
 pi -e .
 ```
 
+## Development
+
+```bash
+npm install
+just check
+just format
+pre-commit install
+```
+
+Publish to npm:
+
+```bash
+just publish
+```
+
+Preview the npm package without publishing:
+
+```bash
+just publish-dry-run
+```
+
 ## Commands
 
 - `/jupyter-preview [path]` — open or refresh the right-side notebook preview.
