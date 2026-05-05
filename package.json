@@ -1,0 +1,26 @@
+{
+  "name": "pi-jupyter",
+  "version": "0.1.0",
+  "description": "Pi extension: right-side Jupyter notebook preview while editing .ipynb files.",
+  "type": "module",
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "jupyter",
+    "notebook"
+  ],
+  "pi": {
+    "extensions": [
+      "./extensions"
+    ]
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": "*",
+    "@mariozechner/pi-tui": "*"
+  },
+  "devDependencies": {
+    "@mariozechner/pi-coding-agent": "*",
+    "@mariozechner/pi-tui": "*",
+    "typescript": "^5.9.3"
+  }
+}
