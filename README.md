@@ -13,16 +13,66 @@ The preview is a static text rendering of notebook cells and selected text outpu
 - Non-capturing by default, so you can keep typing in Pi while the panel stays visible.
 - Focus mode for scrolling the preview.
 
-## Install for this project
+## Install
+
+Install from npm globally:
+
+```bash
+pi install npm:@narumitw/pi-jupyter
+```
+
+Or pin a version:
+
+```bash
+pi install npm:@narumitw/pi-jupyter@0.1.1
+```
+
+Install for the current project only:
+
+```bash
+pi install npm:@narumitw/pi-jupyter -l
+```
+
+Install from GitHub/tag instead of npm:
+
+```bash
+pi install git:github.com/narumiruna/pi-jupyter@v0.1.1
+```
+
+If you previously installed the unscoped package, remove it before installing the scoped package:
+
+```bash
+pi remove npm:pi-jupyter
+pi install npm:@narumitw/pi-jupyter
+```
+
+## Local development install
+
+Use one source at a time. If `npm:@narumitw/pi-jupyter` is installed globally and this repo is also installed locally with `-l`, Pi will load both and report shortcut conflicts.
+
+For temporary local testing, prefer:
+
+```bash
+pi -e .
+```
+
+For a persistent project-local install:
 
 ```bash
 pi install . -l
 ```
 
-Or test without installing:
+If you also have an npm package installed globally, remove one source before starting Pi:
 
 ```bash
-pi -e .
+# Keep the npm package; remove the project-local package from this repo
+pi remove . -l
+
+# Or keep the local package; remove the global npm package
+pi remove npm:@narumitw/pi-jupyter
+
+# If you installed the older unscoped package, remove that too
+pi remove npm:pi-jupyter
 ```
 
 ## Development
@@ -34,10 +84,23 @@ just format
 pre-commit install
 ```
 
-Publish to npm:
+Publish to npm. This runs `biome check .` first via the `justfile`, then `npm publish --access public`:
 
 ```bash
+npm login
 just publish
+```
+
+If npm requires two-factor authentication, pass the one-time password:
+
+```bash
+just publish 123456
+```
+
+After publishing succeeds, this install command will work:
+
+```bash
+pi install npm:@narumitw/pi-jupyter
 ```
 
 Preview the npm package without publishing:

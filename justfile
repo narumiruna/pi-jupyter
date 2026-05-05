@@ -9,8 +9,14 @@ format:
 pre-commit:
 	pre-commit run --all-files
 
-publish: check
-	npm publish
+publish otp="": check
+	#!/usr/bin/env bash
+	set -euo pipefail
+	if [ -n "{{otp}}" ]; then
+		npm publish --access public --otp "{{otp}}"
+	else
+		npm publish --access public
+	fi
 
 publish-dry-run: check
-	npm publish --dry-run
+	npm publish --access public --dry-run

@@ -1,6 +1,6 @@
 {
-  "name": "pi-jupyter",
-  "version": "0.1.0",
+  "name": "@narumitw/pi-jupyter",
+  "version": "0.1.1",
   "description": "Pi extension: right-side Jupyter notebook preview while editing .ipynb files.",
   "type": "module",
   "keywords": [
