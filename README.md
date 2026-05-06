@@ -11,6 +11,7 @@ The preview is a static text rendering of notebook cells and selected text outpu
 - Watches the selected notebook on disk and refreshes after external saves.
 - Displays markdown cells, code cells, execution counts, common text outputs/errors, and inline image outputs when the terminal supports images.
 - Non-capturing by default, so you can keep typing in Pi while the panel stays visible.
+- Mouse-resizable right-side panel: drag the preview's left border to change its width.
 - Focus mode for scrolling the preview.
 
 ## Install
@@ -24,7 +25,7 @@ pi install npm:@narumitw/pi-jupyter
 Or pin a version:
 
 ```bash
-pi install npm:@narumitw/pi-jupyter@0.1.2
+pi install npm:@narumitw/pi-jupyter@0.1.3
 ```
 
 Install for the current project only:
@@ -36,7 +37,7 @@ pi install npm:@narumitw/pi-jupyter -l
 Install from GitHub/tag instead of npm:
 
 ```bash
-pi install git:github.com/narumiruna/pi-jupyter@v0.1.2
+pi install git:github.com/narumiruna/pi-jupyter@v0.1.3
 ```
 
 If you previously installed the unscoped package, remove it before installing the scoped package:
@@ -123,6 +124,7 @@ just publish-dry-run
 - `Shift+F8` — focus preview for scrolling.
 - `Ctrl+Alt+J` / `Ctrl+Alt+K` — scroll preview down/up without focusing it.
 - `Ctrl+Alt+D` / `Ctrl+Alt+U` — page down/up without focusing it.
+- Drag the preview panel's left border with the mouse to resize it.
 - In focused preview: `↑`, `↓`, `PgUp`, `PgDn`, `Home` or `j`, `k`, `u`, `d`, `g` scroll; `Esc` or `F8` returns focus to the editor.
 
 ## Notes
@@ -130,6 +132,7 @@ just publish-dry-run
 PNG outputs are rendered as truecolor ANSI thumbnails, so matplotlib-style `image/png` output is visible in Ghostty even inside the right-side overlay. Other image formats use `@mariozechner/pi-tui` terminal image support when available, otherwise they fall back to an image placeholder.
 
 The panel auto-hides on narrow terminals (`< 90` columns). Resize wider if it does not appear.
+Mouse resizing uses standard terminal mouse reporting; if your terminal reserves mouse drag for selection, use Shift-drag (or your terminal's selection modifier) to select text instead.
 
 If shortcuts conflict with Pi/editor keybindings, use the slash commands:
 

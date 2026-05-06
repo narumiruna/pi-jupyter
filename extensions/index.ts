@@ -3,11 +3,15 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import { basename, relative, resolve } from "node:path";
 import { inflateSync } from "node:zlib";
 import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext } from "@mariozechner/pi-coding-agent";
-import type { Component, OverlayHandle, TUI } from "@mariozechner/pi-tui";
+import type { Component, OverlayHandle, OverlayOptions, TUI } from "@mariozechner/pi-tui";
 import { Image, Key, matchesKey, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@mariozechner/pi-tui";
 
 const PANEL_ID = "jupyter-preview";
 const NOTEBOOK_EXT = ".ipynb";
+const DEFAULT_PANEL_WIDTH_PERCENT = 42;
+const MIN_PANEL_WIDTH = 42;
+const MIN_EDITOR_WIDTH = 24;
+const RIGHT_MARGIN = 1;
 
 type NotebookCell = {
 	cell_type?: string;
@@ -39,6 +43,8 @@ type PreviewState = {
 	lastMtime?: Date;
 	lastError?: string;
 	model?: Notebook;
+	panelWidth?: number;
+	resizing?: boolean;
 };
 
 export default function jupyterPreview(pi: ExtensionAPI) {
@@ -53,6 +59,7 @@ export default function jupyterPreview(pi: ExtensionAPI) {
 	let overlayHandle: OverlayHandle | undefined;
 	let closeOverlay: (() => void) | undefined;
 	let requestRender: (() => void) | undefined;
+	let removeMouseResize: (() => void) | undefined;
 
 	async function setNotebookPath(rawPath: string, ctx: ExtensionContext): Promise<void> {
 		const path = resolveNotebookPath(rawPath, ctx.cwd);
@@ -90,6 +97,16 @@ export default function jupyterPreview(pi: ExtensionAPI) {
 			return;
 		}
 
+		const overlayOptions: OverlayOptions = {
+			anchor: "right-center",
+			width: state.panelWidth ?? `${DEFAULT_PANEL_WIDTH_PERCENT}%`,
+			minWidth: MIN_PANEL_WIDTH,
+			maxHeight: "96%",
+			margin: { right: RIGHT_MARGIN },
+			nonCapturing: true,
+			visible: (termWidth) => termWidth >= 90,
+		};
+
 		void ctx.ui
 			.custom<void>(
 				(tui, theme, _keybindings, done) => {
@@ -99,36 +116,33 @@ export default function jupyterPreview(pi: ExtensionAPI) {
 						tui.requestRender();
 					});
 					requestRender = () => tui.requestRender();
+					removeMouseResize = installMouseResize(tui, state, overlayOptions, () => tui.requestRender());
 					closeOverlay = () => {
 						state.visible = false;
 						state.focused = false;
+						state.resizing = false;
 						done(undefined);
 					};
 					return panel;
 				},
 				{
 					overlay: true,
-					overlayOptions: {
-						anchor: "right-center",
-						width: "42%",
-						minWidth: 42,
-						maxHeight: "96%",
-						margin: { right: 1 },
-						nonCapturing: true,
-						visible: (termWidth) => termWidth >= 90,
-					},
+					overlayOptions,
 					onHandle: (handle) => {
 						overlayHandle = handle;
 					},
 				},
 			)
 			.finally(() => {
+				removeMouseResize?.();
+				removeMouseResize = undefined;
 				overlayHandle = undefined;
 				panel = undefined;
 				closeOverlay = undefined;
 				requestRender = undefined;
 				state.visible = false;
 				state.focused = false;
+				state.resizing = false;
 				ctx.ui.setStatus(PANEL_ID, undefined);
 			});
 
@@ -138,6 +152,7 @@ export default function jupyterPreview(pi: ExtensionAPI) {
 	function hidePanel(ctx?: ExtensionContext): void {
 		state.visible = false;
 		state.focused = false;
+		state.resizing = false;
 		ctx?.ui.setStatus(PANEL_ID, undefined);
 		closeOverlay?.();
 		overlayHandle?.hide();
@@ -310,6 +325,85 @@ export default function jupyterPreview(pi: ExtensionAPI) {
 	});
 }
 
+type MouseEvent = {
+	button: number;
+	x: number;
+	y: number;
+	released: boolean;
+};
+
+function installMouseResize(
+	tui: TUI,
+	state: PreviewState,
+	overlayOptions: OverlayOptions,
+	requestRender: () => void,
+): () => void {
+	const terminal = tui.terminal;
+	const enableMouse = "\x1b[?1000h\x1b[?1002h\x1b[?1006h";
+	const disableMouse = "\x1b[?1006l\x1b[?1002l\x1b[?1000l";
+	terminal.write(enableMouse);
+
+	const removeListener = tui.addInputListener((data) => {
+		const event = parseSgrMouseEvent(data);
+		if (!event) return undefined;
+
+		const isPrimaryButton = (event.button & 3) === 0;
+		const isMotion = (event.button & 32) !== 0;
+		const handleX = getPanelLeftBorderX(terminal.columns, state);
+
+		if (event.released) {
+			state.resizing = false;
+			requestRender();
+			return { consume: true };
+		}
+
+		if (!state.resizing && isPrimaryButton && Math.abs(event.x - handleX) <= 1) {
+			state.resizing = true;
+		}
+
+		if (state.resizing && isPrimaryButton && (isMotion || event.x !== handleX)) {
+			const nextWidth = clampPanelWidth(terminal.columns - RIGHT_MARGIN - (event.x - 1), terminal.columns);
+			state.panelWidth = nextWidth;
+			overlayOptions.width = nextWidth;
+			requestRender();
+		}
+
+		return { consume: true };
+	});
+
+	return () => {
+		state.resizing = false;
+		removeListener();
+		terminal.write(disableMouse);
+	};
+}
+
+function parseSgrMouseEvent(data: string): MouseEvent | undefined {
+	const prefix = `${String.fromCharCode(27)}[<`;
+	if (!data.startsWith(prefix)) return undefined;
+	const suffix = data.at(-1);
+	if (suffix !== "M" && suffix !== "m") return undefined;
+	const parts = data.slice(prefix.length, -1).split(";");
+	if (parts.length !== 3) return undefined;
+	const [button, x, y] = parts.map((part) => Number.parseInt(part, 10));
+	if (![button, x, y].every(Number.isFinite)) return undefined;
+	return { button, x, y, released: suffix === "m" };
+}
+
+function getPanelLeftBorderX(termWidth: number, state: PreviewState): number {
+	const width = clampPanelWidth(
+		state.panelWidth ?? Math.floor((termWidth * DEFAULT_PANEL_WIDTH_PERCENT) / 100),
+		termWidth,
+	);
+	const zeroBasedCol = termWidth - RIGHT_MARGIN - width;
+	return zeroBasedCol + 1;
+}
+
+function clampPanelWidth(width: number, termWidth: number): number {
+	const maxWidth = Math.max(MIN_PANEL_WIDTH, termWidth - RIGHT_MARGIN - MIN_EDITOR_WIDTH);
+	return Math.max(MIN_PANEL_WIDTH, Math.min(maxWidth, Math.round(width)));
+}
+
 class NotebookPreviewPanel implements Component {
 	constructor(
 		private tui: TUI,
@@ -350,7 +444,7 @@ class NotebookPreviewPanel implements Component {
 		const pathLabel = this.state.path
 			? relative(this.state.cwd, this.state.path) || basename(this.state.path)
 			: "no notebook";
-		const title = `${this.state.focused ? "● " : ""}Jupyter Preview`;
+		const title = `${this.state.resizing ? "↔ " : this.state.focused ? "● " : ""}Jupyter Preview`;
 		const lines: string[] = [border(`╭${"─".repeat(inner)}╮`), pad(` ${accent(title)} ${dim(pathLabel)}`)];
 		lines.push(border("├") + border("─".repeat(inner)) + border("┤"));
 
@@ -368,9 +462,11 @@ class NotebookPreviewPanel implements Component {
 		}
 
 		lines.push(border("├") + border("─".repeat(inner)) + border("┤"));
-		const footer = this.state.focused
-			? " ↑↓ PgUp/PgDn or j/k/u/d scroll • Esc/F8 return"
-			: " Ctrl+Alt+j/k scroll • Ctrl+Alt+d/u page • Shift+F8 focus";
+		const footer = this.state.resizing
+			? " Drag to resize width"
+			: this.state.focused
+				? " ↑↓ PgUp/PgDn or j/k/u/d scroll • Esc/F8 return"
+				: " Drag left border resize • Ctrl+Alt+j/k scroll • Shift+F8 focus";
 		lines.push(pad(dim(footer)));
 		lines.push(border(`╰${"─".repeat(inner)}╯`));
 		return lines;
